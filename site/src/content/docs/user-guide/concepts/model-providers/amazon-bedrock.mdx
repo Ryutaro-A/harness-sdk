@@ -1063,9 +1063,9 @@ Python, `boto_session` can also supply the region from a configured profile.
 
 #### Choosing the Endpoint
 
-The config targets `bedrock-mantle` by default. In Python, set `endpoint` to `runtime`
-to use `bedrock-runtime` instead, which is where the OpenAI GPT models are served
-through [cross-Region inference](https://docs.aws.amazon.com/bedrock/latest/userguide/cross-region-inference.html)
+The config targets `bedrock-mantle` by default. In Python, set `endpoint` to
+`bedrock-runtime`, which is where the OpenAI GPT models are served through
+[cross-Region inference](https://docs.aws.amazon.com/bedrock/latest/userguide/cross-region-inference.html)
 profile ids such as `global.openai.gpt-5.6-luna`:
 
 <Tabs>
@@ -1077,7 +1077,7 @@ from strands.models.openai_responses import OpenAIResponsesModel
 
 model = OpenAIResponsesModel(
     model_id="global.openai.gpt-5.6-luna",
-    bedrock_mantle_config={"endpoint": "runtime", "region": "us-east-1"},
+    bedrock_mantle_config={"endpoint": "bedrock-runtime", "region": "us-east-1"},
 )
 
 agent = Agent(model=model)

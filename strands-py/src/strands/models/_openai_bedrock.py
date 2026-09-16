@@ -26,7 +26,7 @@ _RUNTIME_BASE_URL_TEMPLATE = "https://bedrock-runtime.{region}.amazonaws.com/ope
 _MANTLE_DOCS_URL = "https://docs.aws.amazon.com/bedrock/latest/userguide/inference-openai.html"
 _RUNTIME_REGIONS_DOCS_URL = "https://docs.aws.amazon.com/bedrock/latest/userguide/endpoints-region-availability.html"
 _ENDPOINTS_DOCS_URL = "https://docs.aws.amazon.com/bedrock/latest/userguide/endpoints.html"
-_DEFAULT_ENDPOINT: Literal["mantle", "runtime"] = "mantle"
+_DEFAULT_ENDPOINT: Literal["bedrock-mantle", "bedrock-runtime"] = "bedrock-mantle"
 
 
 # Mantle model lines served from /openai/v1; every other Mantle model uses /v1, and the
@@ -54,11 +54,9 @@ class BedrockMantleConfig(TypedDict, total=False):
     """Config for routing an OpenAI-compatible client through Amazon Bedrock.
 
     Attributes:
-        endpoint: Which Bedrock endpoint family serves the request. ``"mantle"`` (the
-            default) uses ``https://bedrock-mantle.{region}.api.aws``; ``"runtime"`` uses
-            ``https://bedrock-runtime.{region}.amazonaws.com/openai/v1`` and is the only one
-            that accepts cross-Region inference profile ids (``us.openai.*``,
-            ``global.openai.*``). See
+        endpoint: Which Bedrock endpoint family serves the request: ``"bedrock-mantle"``
+            (the default) or ``"bedrock-runtime"``. Only ``bedrock-runtime`` accepts
+            cross-Region inference profile ids (``us.openai.*``, ``global.openai.*``). See
             https://docs.aws.amazon.com/bedrock/latest/userguide/endpoints.html for the
             full comparison.
         region: AWS region hosting the Bedrock endpoint. If omitted, resolved
@@ -76,7 +74,7 @@ class BedrockMantleConfig(TypedDict, total=False):
             omitted.
     """
 
-    endpoint: Literal["mantle", "runtime"]
+    endpoint: Literal["bedrock-mantle", "bedrock-runtime"]
     region: str
     boto_session: boto3.Session
     credentials_provider: CredentialProvider
@@ -86,22 +84,16 @@ class BedrockMantleConfig(TypedDict, total=False):
 def _resolve_base_url(config: BedrockMantleConfig, region: str, model_id: str) -> str:
     """Resolve the OpenAI client's ``base_url`` for the configured endpoint family.
 
-    ``bedrock-runtime`` serves every OpenAI-compatible API from ``/openai/v1``, so the
-    base path is fixed there; on ``bedrock-mantle`` it is a per-model property resolved by
-    :func:`_resolve_mantle_base_path`.
-
     Raises:
-        ValueError: If ``endpoint`` is neither ``"mantle"`` nor ``"runtime"``. ``TypedDict``
-            is not enforced at runtime, so an unknown value is rejected here rather than
-            silently falling back to a base URL the caller did not ask for.
+        ValueError: If ``endpoint`` is neither ``"bedrock-mantle"`` nor ``"bedrock-runtime"``.
     """
     endpoint = config.get("endpoint", _DEFAULT_ENDPOINT)
-    if endpoint == "runtime":
+    if endpoint == "bedrock-runtime":
         return _RUNTIME_BASE_URL_TEMPLATE.format(region=region)
-    if endpoint != "mantle":
+    if endpoint != "bedrock-mantle":
         raise ValueError(
             f"Unknown Bedrock endpoint '{endpoint}' in bedrock_mantle_config. "
-            f"Use 'mantle' or 'runtime'. See {_ENDPOINTS_DOCS_URL} for the difference."
+            f"Use 'bedrock-mantle' or 'bedrock-runtime'. See {_ENDPOINTS_DOCS_URL} for the difference."
         )
     return _MANTLE_BASE_URL_TEMPLATE.format(region=region, path=_resolve_mantle_base_path(model_id))
 
@@ -135,7 +127,9 @@ def _resolve_region(config: BedrockMantleConfig) -> str:
     # The two endpoint families are available in different Regions, so point at the list
     # for the one actually being used.
     regions_docs_url = (
-        _RUNTIME_REGIONS_DOCS_URL if config.get("endpoint", _DEFAULT_ENDPOINT) == "runtime" else _MANTLE_DOCS_URL
+        _RUNTIME_REGIONS_DOCS_URL
+        if config.get("endpoint", _DEFAULT_ENDPOINT) == "bedrock-runtime"
+        else _MANTLE_DOCS_URL
     )
     raise ValueError(
         "Could not resolve an AWS region for Amazon Bedrock. Pass 'region' in "

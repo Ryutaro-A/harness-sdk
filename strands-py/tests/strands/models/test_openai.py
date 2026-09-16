@@ -2335,23 +2335,20 @@ class TestOpenAIModelBedrockMantleConfig:
     @pytest.mark.parametrize(
         "model_id",
         [
-            # Cross-Region inference profiles are the only way to reach the OpenAI GPT
-            # models on bedrock-runtime, and bedrock-mantle serves neither them nor
-            # in-Region ids for those models.
+            # Cross-Region inference profile ids.
             "global.openai.gpt-5.6-luna",
             "us.openai.gpt-5.6-sol",
             "us-gov.openai.gpt-5.6-terra",
-            # A foundation-model id resolves to the same fixed path: unlike Mantle,
-            # bedrock-runtime serves every OpenAI-compatible API from /openai/v1.
+            # A foundation-model id resolves to the same fixed path.
             "openai.gpt-oss-120b",
         ],
     )
     def test_bedrock_mantle_config_endpoint_runtime_base_url(self, model_id, openai_client, mock_provide_token):
-        """endpoint='runtime' targets bedrock-runtime on its fixed /openai/v1 base path."""
+        """endpoint='bedrock-runtime' resolves to the fixed /openai/v1 base path."""
         _ = openai_client
         model = OpenAIModel(
             model_id=model_id,
-            bedrock_mantle_config={"endpoint": "runtime", "region": "ap-northeast-1"},
+            bedrock_mantle_config={"endpoint": "bedrock-runtime", "region": "ap-northeast-1"},
         )
 
         resolved = model._resolve_client_args()
@@ -2370,16 +2367,18 @@ class TestOpenAIModelBedrockMantleConfig:
     def test_bedrock_mantle_config_endpoint_mantle_is_the_default(
         self, model_id, expected_url, openai_client, mock_provide_token
     ):
-        """An explicit endpoint='mantle' resolves exactly like omitting the key."""
+        """An explicit endpoint='bedrock-mantle' resolves exactly like omitting the key."""
         _ = openai_client
         _ = mock_provide_token
-        explicit = OpenAIModel(model_id=model_id, bedrock_mantle_config={"endpoint": "mantle", "region": "us-east-1"})
+        explicit = OpenAIModel(
+            model_id=model_id, bedrock_mantle_config={"endpoint": "bedrock-mantle", "region": "us-east-1"}
+        )
         default = OpenAIModel(model_id=model_id, bedrock_mantle_config={"region": "us-east-1"})
 
         assert explicit._resolve_client_args()["base_url"] == expected_url
         assert default._resolve_client_args()["base_url"] == expected_url
 
-    @pytest.mark.parametrize("endpoint", ["runtime ", "bedrock-runtime", "Runtime", "", None])
+    @pytest.mark.parametrize("endpoint", ["bedrock-runtime ", "runtime", "Bedrock-Runtime", "", None])
     def test_bedrock_mantle_config_endpoint_rejects_unknown_value(self, endpoint, openai_client, mock_provide_token):
         """An unknown endpoint fails loudly, before a token is minted."""
         _ = openai_client
@@ -2393,13 +2392,13 @@ class TestOpenAIModelBedrockMantleConfig:
         mock_provide_token.assert_not_called()
 
     def test_bedrock_mantle_config_endpoint_runtime_merges_with_client_args(self, openai_client, mock_provide_token):
-        """endpoint='runtime' composes with client_args the same way Mantle does."""
+        """endpoint='bedrock-runtime' composes with client_args the same way Mantle does."""
         _ = openai_client
         _ = mock_provide_token
         model = OpenAIModel(
             model_id="global.openai.gpt-5.6-luna",
             client_args={"timeout": 42},
-            bedrock_mantle_config={"endpoint": "runtime", "region": "us-west-2"},
+            bedrock_mantle_config={"endpoint": "bedrock-runtime", "region": "us-west-2"},
         )
 
         resolved = model._resolve_client_args()
@@ -2415,7 +2414,9 @@ class TestOpenAIModelBedrockMantleConfig:
             unittest.mock.patch.dict(os.environ, {}, clear=True),
         ):
             mock_session_cls.return_value.region_name = None
-            model = OpenAIModel(model_id="global.openai.gpt-5.6-luna", bedrock_mantle_config={"endpoint": "runtime"})
+            model = OpenAIModel(
+                model_id="global.openai.gpt-5.6-luna", bedrock_mantle_config={"endpoint": "bedrock-runtime"}
+            )
             # The Region lists differ per endpoint, so the message points at the right one.
             with pytest.raises(ValueError, match="Could not resolve an AWS region.*endpoints-region-availability"):
                 model._resolve_client_args()
